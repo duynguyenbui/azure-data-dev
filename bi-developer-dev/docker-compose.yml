@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  sql-server:
+    # Azure SQL Edge is the officially supported image for ARM64 (Mac M1/M2/M3) chips
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: sql_server_edge
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong!Passw0rd # Must be at least 8 characters, with upper, lower, numbers, and symbols
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  sql_data:
