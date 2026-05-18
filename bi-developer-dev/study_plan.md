@@ -55,6 +55,30 @@ This plan bridges the foundational concepts (to recall your knowledge) with the 
 
 **Focus:** Nailing the "Very Important" SQL technical questions with an emphasis on Performance Tuning.
 
+- **Dynamic Grouping (GROUP BY with CASE WHEN):**
+  - _Core:_ Understanding how to use `CASE WHEN` inside a `GROUP BY` clause to dynamically bucket or merge rows together based on business logic.
+  - _Advanced:_ Explain how conditional grouping avoids the need for complex `UNION` statements or multiple staging tables by standardizing grouping keys on the fly.
+
+  **Answer Details:**
+  - **What is it?** Normally, `GROUP BY ColumnA` creates a unique group for every distinct value in `ColumnA`. However, by wrapping a `CASE WHEN` statement inside the `GROUP BY`, you can force different rows to share the exact same grouping key (like forcing a value to `0` or `'Misc'`), which collapses them into a single aggregated row.
+  - **Interview Example:** Imagine an HR system where you want to sum up salaries by Department. However, for the "Executive" department, you want to group them together with the "Admin" department to hide their specific salaries, while leaving IT and HR separate.
+    ```sql
+    SELECT 
+        -- We must use the exact same CASE statement in the SELECT as the GROUP BY
+        CASE 
+            WHEN DepartmentName IN ('Executive', 'Admin') THEN 'Admin & Exec'
+            ELSE DepartmentName 
+        END AS ReportingDepartment,
+        SUM(Salary) AS TotalSalary
+    FROM Employees
+    GROUP BY 
+        CASE 
+            WHEN DepartmentName IN ('Executive', 'Admin') THEN 'Admin & Exec'
+            ELSE DepartmentName 
+        END;
+    ```
+  - **Why your snippet works:** In your specific snippet (e.g., `CASE WHEN PaySummaryType='A' THEN 0 ELSE PaySummaryBalance END`), the logic is forcing certain Pay Summaries to have a balance of `0` for grouping purposes. By forcing them to `0`, the SQL engine ignores their actual distinct balances and merges all those 'A' type records into a single aggregated row for the report.
+
 - **Advanced SQL Joins (INNER, OUTER, CROSS, APPLY):**
   - _Core:_ Differences between `INNER JOIN`, `LEFT/RIGHT/FULL OUTER JOIN`, and `CROSS JOIN`.
   - _Advanced:_ Explain exactly when and why to use `CROSS APPLY` and `OUTER APPLY` instead of standard joins (e.g., table-valued functions or correlated subqueries returning top N rows).
