@@ -85,6 +85,32 @@ This plan bridges the foundational concepts (to recall your knowledge) with the 
       Standard joins cannot dynamically pass a value from the left table into a subquery on the right side. If you tried to use a standard `JOIN` to a subquery in the `FROM` clause, that subquery would not be allowed to reference `c.CustomerID` from the outer query.
       To solve this with standard joins, you would be forced to use messy workarounds like `ROW_NUMBER() OVER (PARTITION BY CustomerID ORDER BY OrderDate DESC)` inside a CTE, which requires scanning and sorting the _entire_ Orders table before doing the join. `CROSS APPLY` allows the engine to surgically execute the `TOP 1` query specifically for the individual customers being evaluated, resulting in vastly superior performance and much cleaner code.
 
+- **BULK INSERT (High-Performance Data Loading):**
+  - _Core:_ What is the `BULK INSERT` command and when to use it over standard `INSERT` statements.
+  - _Advanced:_ Compare `BULK INSERT` with `bcp` and SSIS. Discuss performance tuning like `BATCHSIZE`, `TABLOCK`, and Minimal Logging.
+
+  **Answer Details:**
+  - **What is BULK INSERT?** It is a native T-SQL command used to import large data files (like CSVs) directly into a SQL Server table. It is exponentially faster than standard row-by-row `INSERT` statements because it reads the file directly from the file system and can utilize minimal logging.
+    ```sql
+    BULK INSERT dbo.Staging_Sales
+    FROM 'C:\Data\SalesData.csv'
+    WITH (
+        FIELDTERMINATOR = ',',
+        ROWTERMINATOR = '\n',
+        FIRSTROW = 2,
+        TABLOCK,
+        BATCHSIZE = 100000
+    );
+    ```
+  - **BULK INSERT vs. BCP vs. SSIS:**
+    - **BULK INSERT:** A T-SQL command. Best when you want to orchestrate the import directly from a Stored Procedure. The major limitation is that the SQL Server Engine account must have direct OS-level read permissions to the file path.
+    - **BCP (Bulk Copy Program):** A command-line utility outside of SQL Server. Extremely fast. Best when writing OS-level batch/PowerShell scripts, or when you need to _export_ data (`BULK INSERT` cannot export, it only imports).
+    - **SSIS (Integration Services):** A full ETL platform. Use SSIS when the data requires complex transformations, data type casting, or cleansing _before_ it hits the database. `BULK INSERT` and `BCP` are strictly for loading raw data "as-is" into staging tables.
+  - **Advanced Interview Topic - Minimal Logging:**
+    - To get the absolute fastest load times, SQL Server can bypass writing every single row to the Transaction Log (Minimal Logging).
+    - _How to achieve it:_ The database Recovery Model must be set to `SIMPLE` or `BULK_LOGGED`, and you must use the `TABLOCK` hint in the command.
+    - _Batch Size:_ By default, `BULK INSERT` loads the entire file in one massive transaction. If it fails near the end, the whole file rolls back (which is very expensive). Using `BATCHSIZE` (e.g., 100,000) breaks the load into smaller, committed chunks.
+
 - **Stored Procedures vs. UDFs:**
   - _Core:_ SPs can perform DML and transactions; UDFs return values and cannot modify state.
   - _Advanced:_ Discuss **Parameter Sniffing** in Stored Procedures and how to fix it (e.g., `OPTION (RECOMPILE)`). Discuss why Scalar UDFs can kill performance (row-by-row execution) and why Inline Table-Valued Functions (iTVFs) are strongly preferred.
@@ -765,8 +791,10 @@ Control Flow manages the _execution order_ of operations, not the data itself.
 Inside the Data Flow Task, you move data from Source to Destination.
 
 - **OLE DB Source / Destination:** Used for connecting to SQL Server databases. _Best Practice: Use "Table or view - fast load" in the OLE DB Destination for bulk insert performance._
-- **Flat File Source:** Used to read CSV/TXT files (e.g., Supplier Data). Requires configuring Delimiters and Column Data Types carefully.
+- **ADO NET Source / Destination:** Used for .NET data providers. Often necessary for connecting to certain cloud databases or when utilizing specific providers where OLE DB isn't supported.
+- **Flat File Source / Destination:** Used to read or write CSV/TXT files (e.g., loading Supplier Data or exporting an audit report). Requires careful configuration of Delimiters and Column Data Types.
 - **Excel Source:** Used to read `.xlsx` files (e.g., Exchange Rates). Often requires data type casting because Excel guesses column types.
+- **XML Source:** Parses hierarchical XML documents and translates the tags into relational, tabular rows for downstream processing.
 
 ##### 3. Data Flow Transformations (The Modifiers)
 
@@ -812,7 +840,33 @@ These components manipulate the data as it flows through the pipeline. Understan
   - **When to use:** When native SSIS tools cannot handle the complexity (e.g., custom regex parsing, advanced JSON parsing per row).
   - > _Giải thích: Viết code C# để xử lý từng dòng dữ liệu khi các công cụ có sẵn của SSIS không làm được._
 
-##### 4. Debugging & Deployment Workflows
+- **Fuzzy Lookup / Fuzzy Grouping:**
+  - **What it does:** Uses algorithms to find approximate matches instead of exact matches (requires an active SQL Server connection to build temporary index tables).
+  - **When to use:** Data cleansing and deduplication (e.g., matching "Jon Doe" with "John Doe" or identifying duplicate customer addresses).
+  - > _Giải thích: Tìm kiếm và gom nhóm "gần đúng". Rất hay dùng để làm sạch dữ liệu (Data Cleansing) khi thông tin người dùng bị gõ sai chính tả._
+
+- **Pivot / Unpivot:**
+  - **What it does:** Pivot turns rows into columns; Unpivot turns columns into rows.
+  - **When to use:** Normalizing wide flat files (Unpivot) or preparing summarized cross-tab data for reporting (Pivot).
+  - > _Giải thích: Chuyển đổi dữ liệu từ Hàng sang Cột (Pivot) và ngược lại (Unpivot). Thường dùng để chuẩn hóa dữ liệu bị trải ngang từ các file Excel._
+
+- **Row / Percentage Sampling:**
+  - **What it does:** Extracts a random subset of rows (either an exact number or a percentage) from the data stream.
+  - **When to use:** Rapidly testing a heavy ETL pipeline without waiting for millions of rows to load, or generating sample data for Machine Learning models.
+  - > _Giải thích: Trích xuất ngẫu nhiên một lượng nhỏ dữ liệu để test thử luồng ETL cho nhanh, thay vì phải chờ nạp toàn bộ hàng triệu dòng._
+
+##### 4. Data Flow Mechanics: Paths, Error Handling & Metadata
+
+Beyond just components, the Data Flow relies on strict mechanics to move data safely:
+
+- **Paths (Precedence in Data Flow):** Unlike Control Flow arrows (which define task order), Data Flow Paths physically carry the data from one component's output to another's input. You can attach **Data Viewers** directly onto Paths to inspect the data in memory.
+- **Error Outputs (Row-Level Redirection):** Most transformations and destinations allow you to configure an Error Output. Instead of failing the entire package when a row errors (e.g., truncation, data type mismatch, division by zero), you can redirect that specific row to a different path. These error rows automatically include two critical system columns: `ErrorCode` (why it failed) and `ErrorColumn` (which column caused it).
+- **External Metadata:** When building a Data Flow, SSIS takes an offline snapshot of the source/destination schema called "External Metadata". It uses this to validate data types and columns before you even run the package.
+- **Connection Managers:** Required by Sources, Destinations, and some Transformations (like Lookup) to interact with external data.
+
+> _Giải thích: Trong Data Flow, mũi tên (Paths) dùng để vận chuyển dữ liệu. Quan trọng nhất là tính năng Error Output: nếu 1 dòng dữ liệu bị lỗi (ví dụ sai kiểu dữ liệu), thay vì làm sập cả luồng, ta có thể rẽ nhánh dòng lỗi đó ra chỗ khác để xử lý, lúc này SSIS sẽ tự động gắn thêm 2 cột báo lỗi là `ErrorCode` và `ErrorColumn`. Ngoài ra, SSIS luôn lưu lại bản sao cấu trúc bảng (External Metadata) để tự động kiểm tra lỗi (validate) ngay cả khi bạn đang code offline._
+
+##### 5. Debugging & Deployment Workflows
 
 - **Data Viewers:** You can attach a Data Viewer to the paths between transformations. This pauses execution and opens a grid showing the exact data rows at that exact point in time—critical for debugging Data Type or Lookup errors.
 - **Project Parameters & Connection Strings:** Instead of hardcoding database server names, use Project Parameters. This allows you to easily switch Connection Strings from the "Development" server to the "Production" server.
@@ -874,25 +928,29 @@ A complete validation strategy runs checks at **3 stages** of the pipeline:
 #### Topic 12: SSIS Interview Questions (Deep Dive)
 
 **Q: Can you explain the difference between Non-Blocking, Semi-Blocking, and Blocking Transformations in SSIS?**
+
 - **Non-Blocking:** Processes data row-by-row as it passes through in memory without holding it back. Extremely fast. (e.g., Derived Column, Data Conversion, Lookup).
 - **Semi-Blocking:** Needs to hold a portion of the data in memory before it can output anything. (e.g., Merge, Merge Join).
 - **Blocking:** Must read and hold _all_ incoming data in RAM before it can output the very first row. Very slow and memory-intensive for large datasets. (e.g., Aggregate, Sort).
-> _Giải thích: Các loại biến đổi: Non-Blocking (chạy từng dòng, cực nhanh, vd: Derived Column), Semi-Blocking (giữ một phần data rồi mới nhả ra, vd: Merge), Blocking (phải nạp toàn bộ data vào RAM rồi mới xử lý, cực chậm và ngốn RAM, vd: Sort, Aggregate). Đi làm thực tế luôn cố gắng tránh dùng công cụ Blocking trong SSIS._
+  > _Giải thích: Các loại biến đổi: Non-Blocking (chạy từng dòng, cực nhanh, vd: Derived Column), Semi-Blocking (giữ một phần data rồi mới nhả ra, vd: Merge), Blocking (phải nạp toàn bộ data vào RAM rồi mới xử lý, cực chậm và ngốn RAM, vd: Sort, Aggregate). Đi làm thực tế luôn cố gắng tránh dùng công cụ Blocking trong SSIS._
 
 **Q: What is a Checkpoint in SSIS and how do you configure it?**
 Checkpoints allow an SSIS package to restart from the exact point of failure instead of running from the very beginning. To configure it, you set `SaveCheckpoints = True` at the package level, specify a `CheckpointFileName` (an XML file to store the state), and set `CheckpointUsage = IfExists`. It only works at the Control Flow level (you cannot restart halfway through a Data Flow Task).
+
 > _Giải thích: Checkpoint giúp package chạy lại đúng từ cái Task bị lỗi thay vì chạy lại từ đầu. Cấu hình bằng cách lưu trạng thái vào 1 file XML. Lưu ý: Chỉ hoạt động ở Control Flow, không thể lưu trạng thái dở dang bên trong một Data Flow Task._
 
 **Q: How do you resolve a "32-bit vs 64-bit" execution error when running SSIS via SQL Server Agent?**
 This typically happens when importing/exporting Excel files. Visual Studio runs in 32-bit, so the package works perfectly during development. But SQL Server Agent runs in 64-bit by default and may lack the 64-bit Excel drivers. The fix is to open the SQL Server Agent Job Step, go to the "Execution options" tab, and check the box **"Use 32-bit runtime"**.
+
 > _Giải thích: Lỗi kinh điển khi thao tác với file Excel. Trên máy Dev chạy ngon vì Visual Studio là 32-bit, lên Server chạy lỗi vì SQL Agent là 64-bit. Cách sửa: Mở cấu hình Job trong SQL Agent và tick chọn ô "Use 32-bit runtime"._
 
 **Q: How do you design an Incremental Load in SSIS without using CDC?**
 I would use the **Lookup Transformation** against the target Data Warehouse table.
+
 1. The source data flows into the Lookup.
 2. The **"No Match"** output represents brand-new records. I route these directly to an OLE DB Destination for **INSERT**.
 3. The **"Match"** output represents existing records. I use a **Conditional Split** to compare the incoming source columns against the lookup target columns (often using a Checksum or Hash). If the values are different, I route them to an OLE DB Command (or an Update Staging table) for **UPDATE**.
-> _Giải thích: Thiết kế lấy dữ liệu Incremental bằng Lookup: Dòng nào 'No Match' thì Insert mới. Dòng nào 'Match' thì dùng Conditional Split để so sánh xem dữ liệu gốc có bị thay đổi không, nếu có đổi thì mới Update._
+   > _Giải thích: Thiết kế lấy dữ liệu Incremental bằng Lookup: Dòng nào 'No Match' thì Insert mới. Dòng nào 'Match' thì dùng Conditional Split để so sánh xem dữ liệu gốc có bị thay đổi không, nếu có đổi thì mới Update._
 
 **Q: What is SSIS and what features does it have that are not in standard SQL Server?**
 SQL Server Integration Services (SSIS) is an enterprise-level data integration and ETL (Extract, Transform, Load) tool. While standard SQL Server is primarily designed for storing and querying data, SSIS provides features that cannot be achieved with standard SQL commands alone. These include connecting to disparate external sources (e.g., FTP, Web Services, Excel), performing complex in-memory data transformations, and orchestrating advanced automated workflows.
@@ -1114,6 +1172,7 @@ The **Lookup Transformation** is significantly faster. The SCD wizard uses the O
 > _Giải thích: Dùng Lookup nhanh hơn rất nhiều. Trình thủ thuật SCD có sẵn dùng OLE DB Command chạy từng dòng (row-by-row). Còn Lookup giúp ta rẽ nhánh để lấy ra các dòng cần cập nhật, đổ vào bảng tạm (staging) rồi chạy lệnh Update theo mẻ (set-based) 1 lần duy nhất._
 
 **Q: How do you optimize a Lookup Transformation, and how does it differ from a Merge Join?**
+
 - **Optimization:** Because a Lookup (in Full Cache mode) loads the reference dataset into RAM, you should never select an entire table. Instead, write a custom SQL query (`SELECT KeyColumn, ValueColumn FROM ReferenceTable`) to pull only the strictly necessary columns, minimizing memory consumption.
 - **Lookup vs. Merge Join:**
   - **Lookup:** Acts like a Left/Inner Join. Does **not** require sorted inputs. It caches data in memory. Crucially, if there are duplicate matches, Lookup returns only the **first matching row**.

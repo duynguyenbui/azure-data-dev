@@ -22,6 +22,10 @@
       - _Note: Make sure to practice the specific technical questions if you have them on "page 3"._
     - **ETL / SSIS / Data Flows**
       - Task types in SSIS (e.g., Data Flow, Execute SQL Task, etc.)
+      - Data Flow Components: Sources (ADO NET, XML, Flat File), Transformations, Destinations.
+      - Key Transformations: Conditional Split, Derived Column, Lookup, Pivot/Unpivot, Sort, Fuzzy Grouping.
+      - Error Handling in Data Flows: Error outputs, row-level error redirection, ErrorCode and ErrorColumn.
+      - Connection Managers and External Metadata.
       - End-to-end ETL data validation methods
       - SCD Types (especially Type 1 & 2)
     - **Data Modeling & Warehousing**
