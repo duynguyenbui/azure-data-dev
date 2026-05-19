@@ -63,18 +63,18 @@ This plan bridges the foundational concepts (to recall your knowledge) with the 
   - **What is it?** Normally, `GROUP BY ColumnA` creates a unique group for every distinct value in `ColumnA`. However, by wrapping a `CASE WHEN` statement inside the `GROUP BY`, you can force different rows to share the exact same grouping key (like forcing a value to `0` or `'Misc'`), which collapses them into a single aggregated row.
   - **Interview Example:** Imagine an HR system where you want to sum up salaries by Department. However, for the "Executive" department, you want to group them together with the "Admin" department to hide their specific salaries, while leaving IT and HR separate.
     ```sql
-    SELECT 
+    SELECT
         -- We must use the exact same CASE statement in the SELECT as the GROUP BY
-        CASE 
+        CASE
             WHEN DepartmentName IN ('Executive', 'Admin') THEN 'Admin & Exec'
-            ELSE DepartmentName 
+            ELSE DepartmentName
         END AS ReportingDepartment,
         SUM(Salary) AS TotalSalary
     FROM Employees
-    GROUP BY 
-        CASE 
+    GROUP BY
+        CASE
             WHEN DepartmentName IN ('Executive', 'Admin') THEN 'Admin & Exec'
-            ELSE DepartmentName 
+            ELSE DepartmentName
         END;
     ```
   - **Why your snippet works:** In your specific snippet (e.g., `CASE WHEN PaySummaryType='A' THEN 0 ELSE PaySummaryBalance END`), the logic is forcing certain Pay Summaries to have a balance of `0` for grouping purposes. By forcing them to `0`, the SQL engine ignores their actual distinct balances and merges all those 'A' type records into a single aggregated row for the report.
@@ -1031,13 +1031,18 @@ To use a temp table in a Data Flow Task, you must use a **global temporary table
 **Q: What are the main types of Components in the SSIS Data Flow?**
 SSIS utilizes various components to process data:
 
-- **Sources:** Built-in components used to read data from external sources (e.g., OLE DB Source, Flat File Source).
-- **Destinations:** Built-in components used to write data to target locations.
-- **Transformations:** Modify or clean the data in transit.
-  _(Note: While SSIS provides many built-in components, developers also have the ability to create their own custom components)._
-  > _Giải thích: Data Flow có 3 loại Component chính: Source (đọc dữ liệu), Destination (ghi dữ liệu), và Transformation (biến đổi dữ liệu). Ngoài các tool có sẵn, lập trình viên cũng có thể tự code các Custom Component nếu muốn._
+- **Sources:** Built-in components used to extract data from external sources.
+  - _Examples:_ OLE DB Source (SQL Server/Oracle), Flat File Source (CSV/TXT), Excel Source, XML Source.
+- **Destinations:** Built-in components used to load data into target locations.
+  - _Examples:_ OLE DB Destination (SQL Server), Flat File Destination (creates CSVs), Recordset Destination (saves data into an SSIS memory variable).
+- **Transformations:** Built-in components used to modify, clean, or route the data in transit.
+  - _Examples:_ Lookup (for VLOOKUP-style joins), Conditional Split (for IF/ELSE routing), Derived Column (to calculate new columns), Data Conversion (to cast data types).
 
-**Q: What are some important Transformation Components in the Data Flow?**
+  _(Note: While SSIS provides many built-in components, developers also have the ability to create their own custom components using C#)._
+
+  > _Giải thích: Data Flow có 3 loại Component chính: Source (đầu hút: OLE DB Source, Flat File), Destination (đầu xả: OLE DB Destination, Recordset) và Transformation (bộ lọc/biến đổi: Lookup, Conditional Split). Ngoài các tool có sẵn, ta cũng có thể tự code Custom Component._
+
+**Q: What are some important Transformation Components in the Data Flow?** NOTEEEEEEEEEEEEEEEEEE
 
 - **Data Conversion Transformation:** Used to convert data from one data type to another (e.g., converting a string to an integer).
 - **Conditional Split Transformation:** Used to direct data rows to different outputs based on specified conditions, exactly like an `IF...ELSE` or `SWITCH` statement in programming. You can define multiple expressions to route data to different paths.

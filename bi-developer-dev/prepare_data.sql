@@ -434,4 +434,444 @@ INSERT INTO Orders (customer_id, order_date, total_amount) VALUES
 
 GO
 
+-- ==========================================
+-- Problem 20: DailyRevenue
+-- ==========================================
+IF OBJECT_ID('DailyRevenue', 'U') IS NOT NULL DROP TABLE DailyRevenue;
 
+CREATE TABLE DailyRevenue (
+    date DATE PRIMARY KEY,
+    revenue INT
+);
+
+INSERT INTO DailyRevenue (date, revenue) VALUES
+('2023-11-01', 1500),
+('2023-11-02', 2000),
+('2023-11-03', 2500),
+('2023-11-04', 1800),
+('2023-11-05', 2200),
+('2023-11-06', 3000);
+
+GO
+
+-- ==========================================
+-- Problem 21: Departments
+-- ==========================================
+IF OBJECT_ID('Departments', 'U') IS NOT NULL DROP TABLE Departments;
+
+CREATE TABLE Departments (
+    department_id INT PRIMARY KEY,
+    department_name VARCHAR(100)
+);
+
+INSERT INTO Departments (department_id, department_name) VALUES
+(1, 'Engineering'),
+(2, 'Marketing'),
+(3, 'Sales');
+
+GO
+
+-- ==========================================
+-- Problem 22: Candidates and RequiredSkills
+-- ==========================================
+IF OBJECT_ID('Candidates', 'U') IS NOT NULL DROP TABLE Candidates;
+IF OBJECT_ID('RequiredSkills', 'U') IS NOT NULL DROP TABLE RequiredSkills;
+
+CREATE TABLE Candidates (
+    candidate_id INT,
+    skill VARCHAR(50)
+);
+
+INSERT INTO Candidates (candidate_id, skill) VALUES
+(101, 'Python'),
+(101, 'SQL'),
+(101, 'PowerBI'),
+(102, 'SQL'),
+(102, 'Tableau'),
+(103, 'Python'),
+(103, 'SQL');
+
+CREATE TABLE RequiredSkills (
+    required_skill VARCHAR(50)
+);
+
+INSERT INTO RequiredSkills (required_skill) VALUES
+('SQL'),
+('Python');
+
+GO
+
+-- ==========================================
+-- Problem 23: OrderDetails
+-- ==========================================
+IF OBJECT_ID('OrderDetails', 'U') IS NOT NULL DROP TABLE OrderDetails;
+
+CREATE TABLE OrderDetails (
+    order_id INT,
+    product_name VARCHAR(100)
+);
+
+INSERT INTO OrderDetails (order_id, product_name) VALUES
+(1, 'Apple'),
+(1, 'Banana'),
+(1, 'Cherry'),
+(2, 'Apple'),
+(2, 'Banana'),
+(3, 'Banana'),
+(3, 'Cherry');
+
+GO
+
+-- ==========================================
+-- Problem 24: Promotions
+-- ==========================================
+IF OBJECT_ID('Promotions', 'U') IS NOT NULL DROP TABLE Promotions;
+
+CREATE TABLE Promotions (
+    promo_id INT PRIMARY KEY,
+    start_date DATE,
+    end_date DATE
+);
+
+INSERT INTO Promotions (promo_id, start_date, end_date) VALUES
+(1, '2023-01-01', '2023-01-10'),
+(2, '2023-01-05', '2023-01-15'),
+(3, '2023-01-20', '2023-01-25'),
+(4, '2023-01-22', '2023-01-30');
+
+GO
+
+-- ==========================================
+-- Problem 25: SalaryPeers
+-- ==========================================
+IF OBJECT_ID('SalaryPeers', 'U') IS NOT NULL DROP TABLE SalaryPeers;
+
+CREATE TABLE SalaryPeers (
+    name VARCHAR(100) PRIMARY KEY,
+    salary INT
+);
+
+INSERT INTO SalaryPeers (name, salary) VALUES
+('Alice', 50000),
+('Bob', 50500),
+('Charlie', 51500),
+('David', 60000);
+
+GO
+
+-- ==========================================
+-- Problem 26: PlayerScores (ROWS vs RANGE with Ties)
+-- ==========================================
+IF OBJECT_ID('PlayerScores', 'U') IS NOT NULL DROP TABLE PlayerScores;
+
+CREATE TABLE PlayerScores (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    score_date DATE,
+    points INT
+);
+
+INSERT INTO PlayerScores (score_date, points) VALUES
+('2023-01-01', 10),
+('2023-01-02', 15),
+('2023-01-02', 5),
+('2023-01-03', 20);
+
+GO
+
+-- ==========================================
+-- Problem 27: Department Top Three Salaries
+-- ==========================================
+IF OBJECT_ID('Employee_LC', 'U') IS NOT NULL DROP TABLE Employee_LC;
+IF OBJECT_ID('Department_LC', 'U') IS NOT NULL DROP TABLE Department_LC;
+
+CREATE TABLE Department_LC (
+    id INT PRIMARY KEY,
+    name VARCHAR(50)
+);
+
+CREATE TABLE Employee_LC (
+    id INT PRIMARY KEY,
+    name VARCHAR(50),
+    salary INT,
+    departmentId INT FOREIGN KEY REFERENCES Department_LC(id)
+);
+
+INSERT INTO Department_LC (id, name) VALUES
+(1, 'IT'),
+(2, 'Sales');
+
+INSERT INTO Employee_LC (id, name, salary, departmentId) VALUES
+(1, 'Joe', 85000, 1),
+(2, 'Henry', 80000, 2),
+(3, 'Sam', 60000, 2),
+(4, 'Max', 90000, 1),
+(5, 'Janet', 69000, 1),
+(6, 'Randy', 85000, 1),
+(7, 'Will', 70000, 1);
+
+GO
+
+-- ==========================================
+-- Problem 28: Human Traffic of Stadium
+-- ==========================================
+IF OBJECT_ID('Stadium', 'U') IS NOT NULL DROP TABLE Stadium;
+
+CREATE TABLE Stadium (
+    id INT PRIMARY KEY,
+    visit_date DATE,
+    people INT
+);
+
+INSERT INTO Stadium (id, visit_date, people) VALUES
+(1, '2017-01-01', 10),
+(2, '2017-01-02', 109),
+(3, '2017-01-03', 150),
+(4, '2017-01-04', 99),
+(5, '2017-01-05', 145),
+(6, '2017-01-06', 1455),
+(7, '2017-01-07', 199),
+(8, '2017-01-09', 188);
+
+GO
+
+-- ==========================================
+-- Problem 29: Exchange Seats
+-- ==========================================
+IF OBJECT_ID('Seat', 'U') IS NOT NULL DROP TABLE Seat;
+
+CREATE TABLE Seat (
+    id INT PRIMARY KEY,
+    student VARCHAR(50)
+);
+
+INSERT INTO Seat (id, student) VALUES
+(1, 'Abbot'),
+(2, 'Doris'),
+(3, 'Emerson'),
+(4, 'Green'),
+(5, 'Jeames');
+
+GO
+
+-- ==========================================
+-- Problem 30: Trips and Users
+-- ==========================================
+IF OBJECT_ID('Trips', 'U') IS NOT NULL DROP TABLE Trips;
+IF OBJECT_ID('Users_LC', 'U') IS NOT NULL DROP TABLE Users_LC;
+
+CREATE TABLE Users_LC (
+    users_id INT PRIMARY KEY,
+    banned VARCHAR(10),
+    role VARCHAR(20)
+);
+
+CREATE TABLE Trips (
+    id INT PRIMARY KEY,
+    client_id INT,
+    driver_id INT,
+    city_id INT,
+    status VARCHAR(50),
+    request_at DATE
+);
+
+INSERT INTO Users_LC (users_id, banned, role) VALUES
+(1, 'No', 'client'),
+(2, 'Yes', 'client'),
+(3, 'No', 'client'),
+(4, 'No', 'client'),
+(10, 'No', 'driver'),
+(11, 'No', 'driver'),
+(12, 'No', 'driver'),
+(13, 'No', 'driver');
+
+INSERT INTO Trips (id, client_id, driver_id, city_id, status, request_at) VALUES
+(1, 1, 10, 1, 'completed', '2013-10-01'),
+(2, 2, 11, 1, 'cancelled_by_driver', '2013-10-01'),
+(3, 3, 12, 6, 'completed', '2013-10-01'),
+(4, 4, 13, 6, 'cancelled_by_client', '2013-10-01'),
+(5, 1, 10, 1, 'completed', '2013-10-02'),
+(6, 2, 11, 6, 'completed', '2013-10-02'),
+(7, 3, 12, 6, 'completed', '2013-10-02'),
+(8, 2, 12, 12, 'completed', '2013-10-03'),
+(9, 3, 10, 12, 'completed', '2013-10-03'),
+(10, 4, 13, 12, 'cancelled_by_driver', '2013-10-03');
+
+GO
+
+-- ==========================================
+-- Problem 31: Consecutive Numbers
+-- ==========================================
+IF OBJECT_ID('Logs', 'U') IS NOT NULL DROP TABLE Logs;
+
+CREATE TABLE Logs (
+    id INT PRIMARY KEY,
+    num INT
+);
+
+INSERT INTO Logs (id, num) VALUES
+(1, 1),
+(2, 1),
+(3, 1),
+(4, 2),
+(5, 1),
+(6, 2),
+(7, 2);
+
+GO
+
+-- ==========================================
+-- Problem 32: Game Play Analysis IV
+-- ==========================================
+IF OBJECT_ID('Activity', 'U') IS NOT NULL DROP TABLE Activity;
+
+CREATE TABLE Activity (
+    player_id INT,
+    device_id INT,
+    event_date DATE,
+    games_played INT,
+    PRIMARY KEY (player_id, event_date)
+);
+
+INSERT INTO Activity (player_id, device_id, event_date, games_played) VALUES
+(1, 2, '2016-03-01', 5),
+(1, 2, '2016-03-02', 6),
+(2, 3, '2017-06-25', 1),
+(3, 1, '2016-03-02', 0),
+(3, 4, '2018-07-03', 5);
+
+GO
+
+-- ==========================================
+-- Problem 33: Tree Node
+-- ==========================================
+IF OBJECT_ID('Tree', 'U') IS NOT NULL DROP TABLE Tree;
+
+CREATE TABLE Tree (
+    id INT PRIMARY KEY,
+    p_id INT
+);
+
+INSERT INTO Tree (id, p_id) VALUES
+(1, NULL),
+(2, 1),
+(3, 1),
+(4, 2),
+(5, 2);
+
+GO
+
+-- ==========================================
+-- Problem 34: Average Salary: Departments VS Company
+-- ==========================================
+IF OBJECT_ID('Salary_DP', 'U') IS NOT NULL DROP TABLE Salary_DP;
+IF OBJECT_ID('Employee_DP', 'U') IS NOT NULL DROP TABLE Employee_DP;
+
+CREATE TABLE Salary_DP (
+    id INT PRIMARY KEY,
+    employee_id INT,
+    amount INT,
+    pay_date DATE
+);
+
+CREATE TABLE Employee_DP (
+    employee_id INT PRIMARY KEY,
+    department_id INT
+);
+
+INSERT INTO Salary_DP (id, employee_id, amount, pay_date) VALUES
+(1, 1, 9000, '2017-03-31'),
+(2, 2, 6000, '2017-03-31'),
+(3, 3, 10000, '2017-03-31'),
+(4, 1, 7000, '2017-02-28'),
+(5, 2, 6000, '2017-02-28'),
+(6, 3, 8000, '2017-02-28');
+
+INSERT INTO Employee_DP (employee_id, department_id) VALUES
+(1, 1),
+(2, 2),
+(3, 2);
+
+GO
+
+-- ==========================================
+-- Problem 35: Investments in 2016
+-- ==========================================
+IF OBJECT_ID('Insurance', 'U') IS NOT NULL DROP TABLE Insurance;
+
+CREATE TABLE Insurance (
+    pid INT PRIMARY KEY,
+    tiv_2015 FLOAT,
+    tiv_2016 FLOAT,
+    lat FLOAT,
+    lon FLOAT
+);
+
+INSERT INTO Insurance (pid, tiv_2015, tiv_2016, lat, lon) VALUES
+(1, 10, 5, 10, 10),
+(2, 20, 20, 20, 20),
+(3, 10, 30, 20, 20),
+(4, 10, 40, 40, 40);
+
+GO
+
+-- ==========================================
+-- Problem 36: Active Businesses
+-- ==========================================
+IF OBJECT_ID('Events', 'U') IS NOT NULL DROP TABLE Events;
+
+CREATE TABLE Events (
+    business_id INT,
+    event_type VARCHAR(50),
+    occurences INT
+);
+
+INSERT INTO Events (business_id, event_type, occurences) VALUES
+(1, 'reviews', 7),
+(3, 'reviews', 3),
+(1, 'ads', 11),
+(2, 'ads', 7),
+(3, 'ads', 6),
+(1, 'page views', 3),
+(2, 'page views', 12);
+
+GO
+
+-- ==========================================
+-- Problem 37: Students Report By Geography
+-- ==========================================
+IF OBJECT_ID('Student', 'U') IS NOT NULL DROP TABLE Student;
+
+CREATE TABLE Student (
+    name VARCHAR(50),
+    continent VARCHAR(50)
+);
+
+INSERT INTO Student (name, continent) VALUES
+('Jane', 'America'),
+('Pascal', 'Europe'),
+('Xi', 'Asia'),
+('Jack', 'America');
+
+GO
+
+-- ==========================================
+-- Problem 38 & 39: Employee Hierarchy / Nth Highest Salary
+-- ==========================================
+IF OBJECT_ID('Employee_HR', 'U') IS NOT NULL DROP TABLE Employee_HR;
+
+CREATE TABLE Employee_HR (
+    id INT PRIMARY KEY,
+    name VARCHAR(50),
+    salary INT,
+    managerId INT
+);
+
+INSERT INTO Employee_HR (id, name, salary, managerId) VALUES
+(101, 'John', 100000, NULL),
+(102, 'Dan', 80000, 101),
+(103, 'James', 75000, 101),
+(104, 'Amy', 90000, 101),
+(105, 'Anne', 60000, 101),
+(106, 'Ron', 55000, 101);
+
+GO

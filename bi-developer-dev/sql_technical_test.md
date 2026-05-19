@@ -1510,3 +1510,890 @@ INCLUDE (total_amount);
 1. **Without the index:** SQL Server has no way to find rows for `customer_id = 'C0042'` without reading every row (Clustered Index Scan — very slow).
 2. **With the index:** SQL Server does an **Index Seek** directly to `customer_id = 'C0042'` and then filters the narrow date range. This reads only a handful of pages instead of millions.
 3. **Why `INCLUDE (total_amount)`:** Without it, SQL Server would need to do a **Key Lookup** — jumping from the non-clustered index back to the clustered index to fetch `total_amount` for every matched row. The `INCLUDE` makes the index **covering** (self-sufficient), eliminating that expensive back-and-forth. This is the single most common index optimization a BI developer should know.
+
+---
+
+## Problem 20: Moving Average & Window Functions
+
+### Table: DailyRevenue
+
+**Scenario:** You have a table containing the daily revenue of a business.
+
+| date       | revenue |
+| :--------- | :------ |
+| 2023-11-01 | 1500    |
+| 2023-11-02 | 2000    |
+| 2023-11-03 | 2500    |
+| 2023-11-04 | 1800    |
+| 2023-11-05 | 2200    |
+| 2023-11-06 | 3000    |
+
+### Question 1: Calculate a 3-Day Moving Average
+
+_Write a query to calculate the 3-day moving average of revenue for each day (including the current day and the 2 preceding days). If there are fewer than 2 preceding days, average what is available._
+
+**Solution:**
+
+```sql
+SELECT
+    date,
+    revenue,
+    AVG(CAST(revenue AS DECIMAL(10,2))) OVER (
+        ORDER BY date
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS moving_avg_3d
+FROM
+    DailyRevenue
+ORDER BY
+    date;
+```
+
+**Why this works:** The `ROWS BETWEEN 2 PRECEDING AND CURRENT ROW` frame clause inside the `OVER` clause specifically limits the window to the current row and the two previous rows based on the `ORDER BY date`. The `AVG` is then computed over only those rows.
+
+---
+
+## Problem 21: Cross Apply for Top N per Category
+
+### Tables: Departments, Employees (Reused from Problem 2)
+
+**Scenario:** We have `Departments` and `Employees`. We want to find the top 2 highest paid employees in each department.
+
+| department_id | department_name |
+| :------------ | :-------------- |
+| 1             | Engineering     |
+| 2             | Marketing       |
+| 3             | Sales           |
+
+### Question 1: Find Top 2 Earners per Department using CROSS APPLY
+
+_Write a query using `CROSS APPLY` to find the top 2 highest-paid employees in each department._
+
+**Solution:**
+
+```sql
+SELECT
+    d.department_name,
+    e.name AS employee_name,
+    e.salary
+FROM
+    Departments d
+CROSS APPLY (
+    SELECT TOP 2
+        name,
+        salary
+    FROM
+        Employees emp
+    WHERE
+        emp.department_id = d.department_id
+    ORDER BY
+        salary DESC
+) e
+ORDER BY
+    d.department_name,
+    e.salary DESC;
+```
+
+**Why this works:** `CROSS APPLY` allows you to evaluate a subquery or table-valued function for each row in the outer table (`Departments`). Here, for every department, the subquery selects its top 2 earners, effectively passing the `d.department_id` into the inner query. This is a very clean way to do a "Top N per group" without window functions like `ROW_NUMBER()`.
+
+---
+
+## Problem 22: Relational Division (Exact Matching)
+
+### Tables: Candidates, RequiredSkills
+
+**Scenario:** You need to find candidates who possess _all_ the required skills for a specific job profile. This is known as "Relational Division".
+
+| candidate_id | skill   |
+| :----------- | :------ |
+| 101          | Python  |
+| 101          | SQL     |
+| 101          | PowerBI |
+| 102          | SQL     |
+| 102          | Tableau |
+| 103          | Python  |
+| 103          | SQL     |
+
+| required_skill |
+| :------------- |
+| SQL            |
+| Python         |
+
+### Question 1: Find candidates who have all required skills
+
+_Write a query to find the `candidate_id`s of candidates who have exactly all the skills listed in the `RequiredSkills` table._
+
+**Solution:**
+
+```sql
+SELECT
+    c.candidate_id
+FROM
+    Candidates c
+JOIN
+    RequiredSkills rs ON c.skill = rs.required_skill
+GROUP BY
+    c.candidate_id
+HAVING
+    COUNT(DISTINCT c.skill) = (SELECT COUNT(*) FROM RequiredSkills);
+```
+
+**Why this works:** We join the candidates with the required skills to filter out irrelevant skills. Then, we group by candidate and count how many _distinct_ required skills they matched. If that count matches the total number of required skills, it means the candidate has them all.
+
+---
+
+## Problem 23: Market Basket Analysis (Product Pairs)
+
+### Table: OrderDetails
+
+**Scenario:** You want to analyze which products are frequently bought together in the same order.
+
+| order_id | product_name |
+| :------- | :----------- |
+| 1        | Apple        |
+| 1        | Banana       |
+| 1        | Cherry       |
+| 2        | Apple        |
+| 2        | Banana       |
+| 3        | Banana       |
+| 3        | Cherry       |
+
+### Question 1: Find pairs of products bought together
+
+_Write a query to find the frequency of pairs of products bought in the same order. Return `product_1`, `product_2`, and the `frequency` of them appearing together._
+
+**Solution:**
+
+```sql
+SELECT
+    o1.product_name AS product_1,
+    o2.product_name AS product_2,
+    COUNT(DISTINCT o1.order_id) AS frequency
+FROM
+    OrderDetails o1
+JOIN
+    OrderDetails o2 ON o1.order_id = o2.order_id
+                   AND o1.product_name < o2.product_name
+GROUP BY
+    o1.product_name,
+    o2.product_name
+ORDER BY
+    frequency DESC;
+```
+
+**Why this works:** We self-join the `OrderDetails` table on the same `order_id`. The crucial part is the inequality condition `o1.product_name < o2.product_name`. This prevents joining a product to itself (Apple-Apple) and prevents getting duplicate pairs in reverse order (Apple-Banana and Banana-Apple).
+
+---
+
+## Problem 24: Overlapping Date Ranges (Merging Intervals)
+
+### Table: Promotions
+
+**Scenario:** A marketing department runs several promotions. Sometimes the date ranges of these promotions overlap. You need to find the consolidated, continuous periods where _any_ promotion was running.
+
+| promo_id | start_date | end_date   |
+| :------- | :--------- | :--------- |
+| 1        | 2023-01-01 | 2023-01-10 |
+| 2        | 2023-01-05 | 2023-01-15 |
+| 3        | 2023-01-20 | 2023-01-25 |
+| 4        | 2023-01-22 | 2023-01-30 |
+
+### Question 1: Consolidate overlapping date ranges
+
+_Write a query to merge overlapping promotion periods into consolidated start and end dates. Return `merged_start_date` and `merged_end_date`._
+
+**Solution:**
+
+```sql
+WITH RollingMax AS (
+    SELECT
+        promo_id,
+        start_date,
+        end_date,
+        -- Find the maximum end date of all intervals that started BEFORE the current one
+        MAX(end_date) OVER (ORDER BY start_date ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) as max_previous_end_date
+    FROM Promotions
+),
+IslandStarts AS (
+    SELECT
+        promo_id,
+        start_date,
+        end_date,
+        -- If the current start date is strictly greater than the max end date of all previous intervals,
+        -- it means it doesn't overlap and starts a new merged interval ("island")
+        CASE WHEN start_date > max_previous_end_date OR max_previous_end_date IS NULL THEN 1 ELSE 0 END AS is_new_island
+    FROM RollingMax
+),
+Islands AS (
+    SELECT
+        promo_id,
+        start_date,
+        end_date,
+        SUM(is_new_island) OVER (ORDER BY start_date) AS island_id
+    FROM IslandStarts
+)
+SELECT
+    MIN(start_date) AS merged_start_date,
+    MAX(end_date) AS merged_end_date
+FROM Islands
+GROUP BY island_id
+ORDER BY merged_start_date;
+```
+
+**Why this works:** This is the standard "Packing Intervals" technique using window functions.
+
+1. `RollingMax` calculates the highest `end_date` seen so far.
+2. `IslandStarts` checks if the current `start_date` is later than that highest previous `end_date`. If so, a gap exists, so we mark it as the start of a new group (`is_new_island = 1`).
+3. `Islands` creates an identifier for each grouped period by doing a running sum of the flags.
+4. The final query groups by that identifier and takes the MIN and MAX dates for each block.
+
+---
+
+## Problem 25: Logical Window Frames (RANGE)
+
+### Table: SalaryPeers
+
+**Scenario:** HR wants a report showing for every employee, how many other employees have a salary that is within $1,000 of their salary. This requires creating a logical window frame based on the numeric value of the salary, not physical rows.
+
+| name    | salary |
+| :------ | :----- |
+| Alice   | 50000  |
+| Bob     | 50500  |
+| Charlie | 51500  |
+| David   | 60000  |
+
+### Question 1: Find the number of salary peers within $1,000
+
+_Write a query to calculate how many OTHER employees have a salary within a $1,000 range of the current employee's salary. Return the employee's `name`, `salary`, and `peers_within_1000`._
+
+**Solution 1 (Standard SQL - e.g., PostgreSQL, MySQL):**
+
+```sql
+SELECT
+    name,
+    salary,
+    -- Count everyone in the window, then subtract 1 so we don't count the employee themselves
+    COUNT(*) OVER (
+        ORDER BY salary
+        RANGE BETWEEN 1000 PRECEDING AND 1000 FOLLOWING
+    ) - 1 AS peers_within_1000
+FROM SalaryPeers
+ORDER BY salary;
+```
+
+**Solution 2 (Microsoft SQL Server / T-SQL):**
+
+As the error message indicates, SQL Server explicitly restricts `RANGE` to `UNBOUNDED` and `CURRENT ROW`. To solve this in T-SQL, we must use a self-join to manually recreate the logical window:
+
+```sql
+SELECT
+    e1.name,
+    e1.salary,
+    COUNT(e2.name) - 1 AS peers_within_1000
+FROM
+    SalaryPeers e1
+LEFT JOIN
+    SalaryPeers e2
+    ON e2.salary BETWEEN e1.salary - 1000 AND e1.salary + 1000
+GROUP BY
+    e1.name,
+    e1.salary
+ORDER BY
+    e1.salary;
+```
+
+**Why this works:**
+
+1. **Standard SQL:** The `RANGE` keyword evaluates the logical value of the data in the `ORDER BY` clause. For "Bob" ($50,500), SQL dynamically creates a window from $49,500 to $51,500.
+2. **SQL Server:** We mimic the `RANGE` behavior by joining the table to itself (`e1` to `e2`). For every row in `e1`, we find all rows in `e2` where the salary falls within the `e1.salary +/- 1000` boundary. Then we group by `e1` and count the matches (subtracting 1 to exclude the employee matching themselves).
+
+---
+
+## Problem 26: ROWS vs RANGE Behavior with Ties (SQL Server Supported)
+
+### Table: PlayerScores
+
+**Scenario:** We are tracking the points a player scores in a game. Notice that the player scored twice on `2023-01-02`. We want to see how `ROWS` and `RANGE` handle a running total when there are duplicate values in the `ORDER BY` clause. This perfectly demonstrates what `RANGE` does in SQL Server natively.
+
+| score_date | points |
+| :--------- | :----- |
+| 2023-01-01 | 10     |
+| 2023-01-02 | 15     |
+| 2023-01-02 | 5      |
+| 2023-01-03 | 20     |
+
+### Question 1: Demonstrate ROWS vs RANGE for Running Totals
+
+_Write a query that calculates two running totals of points ordered by `score_date`: one using `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`, and another using `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`._
+
+**Solution:**
+
+```sql
+SELECT
+    score_date,
+    points,
+    -- ROWS: Strict line-by-line physical calculation
+    SUM(points) OVER (
+        ORDER BY score_date
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_total_rows,
+
+    -- RANGE: Logical calculation treating identical dates as peers
+    SUM(points) OVER (
+        ORDER BY score_date
+        RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS running_total_range
+FROM
+    PlayerScores
+ORDER BY
+    score_date;
+```
+
+**Why this works:**
+
+1. **`ROWS`** calculates the total line-by-line. On `Jan 02`, it processes the `15` point row first (Total: 25), and then the `5` point row next (Total: 30).
+2. **`RANGE`** looks at the logical value (`Jan 02`). It sees two rows share this same value, so it treats them as a single group. It sums the entire group's points for that day (15 + 5 = 20) and adds it to the previous total (10). Thus, BOTH rows for `Jan 02` receive a running total of `30`.
+
+_Interview Tip: If you just write `SUM(points) OVER (ORDER BY score_date)`, SQL Server silently defaults to the `RANGE` behavior. Because `RANGE` has to scan ahead to find ties, it is noticeably slower than `ROWS` on large datasets. Always write `ROWS UNBOUNDED PRECEDING` if you don't need tie-handling!_
+
+---
+
+## Problem 27: Department Top Three Salaries (LeetCode Hard)
+
+### Tables: Employee_LC, Department_LC
+
+**Scenario:** A company's executives are interested in seeing who earns the most money in each of the company's departments. A high earner in a department is an employee who has a salary in the top three unique salaries for that department.
+
+| id  | name  | salary | departmentId |
+| :-- | :---- | :----- | :----------- |
+| 1   | Joe   | 85000  | 1            |
+| 2   | Henry | 80000  | 2            |
+| 3   | Sam   | 60000  | 2            |
+| 4   | Max   | 90000  | 1            |
+| 5   | Janet | 69000  | 1            |
+| 6   | Randy | 85000  | 1            |
+| 7   | Will  | 70000  | 1            |
+
+| id  | name  |
+| :-- | :---- |
+| 1   | IT    |
+| 2   | Sales |
+
+### Question 1: Find the top 3 high earners per department
+
+_Write a solution to find the employees who are high earners in each of the departments. Return `Department`, `Employee`, and `Salary`._
+
+**Solution (T-SQL):**
+
+```sql
+WITH RankedSalaries AS (
+    SELECT
+        d.name AS Department,
+        e.name AS Employee,
+        e.salary AS Salary,
+        DENSE_RANK() OVER (PARTITION BY e.departmentId ORDER BY e.salary DESC) AS salary_rank
+    FROM
+        Employee_LC e
+    JOIN
+        Department_LC d ON e.departmentId = d.id
+)
+SELECT
+    Department,
+    Employee,
+    Salary
+FROM
+    RankedSalaries
+WHERE
+    salary_rank <= 3;
+```
+
+**Why this works:** We use `DENSE_RANK()` because the problem asks for the "top three _unique_ salaries". If two people tie for the highest salary (e.g., Max and Randy both make $85,000), they both get Rank 1. The next highest salary gets Rank 2. If we used `RANK()`, the next highest salary would get Rank 3. If we used `ROW_NUMBER()`, ties would be broken arbitrarily.
+
+---
+
+## Problem 28: Human Traffic of Stadium (LeetCode Hard)
+
+### Table: Stadium
+
+**Scenario:** We have a table displaying the `id`, `visit_date`, and `people` attending a stadium. We want to identify the busy days.
+
+| id  | visit_date | people |
+| :-- | :--------- | :----- |
+| 1   | 2017-01-01 | 10     |
+| 2   | 2017-01-02 | 109    |
+| 3   | 2017-01-03 | 150    |
+| 4   | 2017-01-04 | 99     |
+| 5   | 2017-01-05 | 145    |
+| 6   | 2017-01-06 | 1455   |
+| 7   | 2017-01-07 | 199    |
+| 8   | 2017-01-09 | 188    |
+
+### Question 1: Find 3 or more consecutive busy days
+
+_Write a solution to display the records with three or more consecutive rows with `people >= 100` each. Return the records ordered by `visit_date` in ascending order._
+
+**Solution (T-SQL - Gaps and Islands approach):**
+
+```sql
+WITH BusyDays AS (
+    -- Step 1: Filter only busy days and calculate the gap identifier
+    SELECT
+        id,
+        visit_date,
+        people,
+        DATEADD(day, -ROW_NUMBER() OVER (ORDER BY visit_date), visit_date) AS group_id
+    FROM
+        Stadium
+    WHERE
+        people >= 100
+),
+GroupCounts AS (
+    -- Step 2: Count how many consecutive days are in each group
+    SELECT
+        id,
+        visit_date,
+        people,
+        COUNT(*) OVER (PARTITION BY group_id) AS days_in_group
+    FROM
+        BusyDays
+)
+-- Step 3: Filter groups with 3 or more days
+SELECT
+    id,
+    visit_date,
+    people
+FROM
+    GroupCounts
+WHERE
+    days_in_group >= 3
+ORDER BY
+    visit_date ASC;
+```
+
+**Why this works:** This is a classic "Gaps and Islands" problem solved using the `DATEADD` and `ROW_NUMBER()` trick. This is much safer than using `ID` because IDs can have gaps if records are deleted, but dates are always consistent.
+
+1. We filter for `people >= 100`.
+2. We assign a `ROW_NUMBER()` to these filtered rows based on their `visit_date`.
+3. If the dates are consecutive, subtracting their `ROW_NUMBER` (in days) from the `visit_date` will always result in the exact same base date! We use `DATEADD(day, -ROW_NUMBER, visit_date)` to find this base date, which serves as a perfect, unique `group_id` for that island of consecutive days.
+4. We then use a window function `COUNT(*) OVER (PARTITION BY group_id)` to find the size of each consecutive group and filter for sizes `>= 3`.
+
+---
+
+## Problem 29: Exchange Seats (LeetCode Medium)
+
+### Table: Seat
+
+**Scenario:** A school wants to swap the seats of every two consecutive students. If the number of students is odd, the id of the last student is not swapped.
+
+| id  | student |
+| :-- | :------ |
+| 1   | Abbot   |
+| 2   | Doris   |
+| 3   | Emerson |
+| 4   | Green   |
+| 5   | Jeames  |
+
+### Question 1: Swap adjacent seats
+
+_Write a solution to swap the seat id of every two consecutive students. Return the result table ordered by `id` in ascending order._
+
+**Solution (T-SQL):**
+
+```sql
+SELECT
+    CASE
+        -- If it's an odd ID and it's NOT the last row, swap with the next ID
+        WHEN id % 2 <> 0 AND id != (SELECT MAX(id) FROM Seat) THEN id + 1
+        -- If it's an even ID, swap with the previous ID
+        WHEN id % 2 = 0 THEN id - 1
+        -- If it's an odd ID and it IS the last row, keep it the same
+        ELSE id
+    END AS id,
+    student
+FROM
+    Seat
+ORDER BY
+    id ASC;
+```
+
+**Alternative Solution (Using LEAD/LAG Window Functions):**
+
+```sql
+SELECT
+    id,
+    CASE
+        WHEN id % 2 = 1 THEN ISNULL(LEAD(student) OVER (ORDER BY id), student)
+        ELSE LAG(student) OVER (ORDER BY id)
+    END AS student
+FROM
+    Seat
+ORDER BY
+    id;
+```
+
+**Why this works:**
+
+- The first solution dynamically calculates the new `id` using modulo math (`% 2`) to identify odd/even rows. It handles the edge case of an odd total number of rows by checking against `MAX(id)`.
+- The second solution is often preferred in modern SQL because it keeps the `id` stable and uses `LEAD` (look ahead 1 row) and `LAG` (look behind 1 row) to pull the names from the adjacent rows. `ISNULL` catches the odd-numbered last row where `LEAD` returns `NULL`.
+
+---
+
+## Problem 30: Trips and Users (Hard)
+
+### Tables: Trips, Users
+
+**Scenario:** The `Trips` table holds all taxi trips. Each trip has a unique Id, Client_Id, Driver_Id, City_Id, Status, and Request_at. The `Users` table holds all users (clients and drivers) and their role and banned status.
+
+### Question 1: Cancellation Rate
+
+_Write a SQL query to find the cancellation rate of requests with unbanned users (both client and driver must not be banned) each day between "2013-10-01" and "2013-10-03". Round Cancellation Rate to two decimal points._
+
+**Solution (T-SQL):**
+
+```sql
+SELECT
+    t.request_at AS Day,
+    ROUND(
+        SUM(CASE WHEN t.status IN ('cancelled_by_driver', 'cancelled_by_client') THEN 1.0 ELSE 0.0 END)
+        / COUNT(*),
+    2) AS 'Cancellation Rate'
+FROM
+    Trips t
+JOIN
+    Users c ON t.client_id = c.users_id AND c.banned = 'No'
+JOIN
+    Users d ON t.driver_id = d.users_id AND d.banned = 'No'
+WHERE
+    t.request_at BETWEEN '2013-10-01' AND '2013-10-03'
+GROUP BY
+    t.request_at;
+```
+
+**Why this works:** We join the `Users` table twice (once for clients, once for drivers) to ensure neither is banned. Then, we use conditional aggregation (`SUM(CASE...)`) to count cancelled trips, cast as `1.0` to force decimal division, and divide by the total `COUNT(*)` for that day.
+
+---
+
+## Problem 31: Consecutive Numbers (Medium)
+
+### Table: Logs
+
+**Scenario:** We have a `Logs` table with an auto-incrementing `id` and a `num` column.
+
+### Question 1: Find 3 consecutive numbers
+
+_Write an SQL query to find all numbers that appear at least three times consecutively._
+
+**Solution (T-SQL):**
+
+```sql
+WITH LaggedLogs AS (
+    SELECT
+        num,
+        LAG(num, 1) OVER (ORDER BY id) AS prev_num_1,
+        LAG(num, 2) OVER (ORDER BY id) AS prev_num_2
+    FROM
+        Logs
+)
+SELECT DISTINCT
+    num AS ConsecutiveNums
+FROM
+    LaggedLogs
+WHERE
+    num = prev_num_1 AND num = prev_num_2;
+```
+
+**Why this works:** The `LAG` window function is perfect here. By looking back 1 row (`prev_num_1`) and 2 rows (`prev_num_2`), we can evaluate three consecutive rows in a single evaluation context. If the current number equals the previous two, it's a 3-consecutive streak. `DISTINCT` ensures we don't list a number multiple times if the streak is 4+ long.
+
+---
+
+## Problem 32: Game Play Analysis IV (Medium)
+
+### Table: Activity
+
+**Scenario:** The `Activity` table tracks `player_id`, `device_id`, `event_date`, and `games_played`.
+
+### Question 1: Day 1 Retention
+
+_Write an SQL query to report the fraction of players that logged in again on the day after the day they first logged in, rounded to 2 decimal places. In other words, you need to count the number of players that logged in for at least two consecutive days starting from their first login date, then divide that number by the total number of players._
+
+**Solution (T-SQL):**
+
+```sql
+WITH FirstLogins AS (
+    SELECT
+        player_id,
+        MIN(event_date) AS first_login_date
+    FROM
+        Activity
+    GROUP BY
+        player_id
+)
+SELECT
+    ROUND(
+        CAST(COUNT(a.player_id) AS FLOAT) / (SELECT COUNT(DISTINCT player_id) FROM Activity),
+    2) AS fraction
+FROM
+    FirstLogins f
+JOIN
+    Activity a ON f.player_id = a.player_id
+              AND a.event_date = DATEADD(day, 1, f.first_login_date);
+```
+
+**Why this works:** This is the canonical way to calculate retention. First, we find the absolute minimum (first) login date per player in a CTE. Then, we join back to the `Activity` table, checking if there exists a record for that same player exactly 1 day after (`DATEADD(day, 1)`) their first login.
+
+---
+
+## Problem 33: Tree Node (Medium)
+
+### Table: Tree
+
+**Scenario:** We have a table representing a generic tree structure with `id` and `p_id` (parent ID).
+
+### Question 1: Categorize Nodes
+
+_Write an SQL query to report the type of each node in the tree. Return `Root` (no parent), `Inner` (has parent and children), or `Leaf` (has parent, no children)._
+
+**Solution (T-SQL):**
+
+```sql
+SELECT
+    id,
+    CASE
+        WHEN p_id IS NULL THEN 'Root'
+        WHEN id IN (SELECT p_id FROM Tree WHERE p_id IS NOT NULL) THEN 'Inner'
+        ELSE 'Leaf'
+    END AS type
+FROM
+    Tree
+ORDER BY
+    id;
+```
+
+**Why this works:** The `CASE` statement perfectly mirrors the hierarchical logic.
+
+1. If it has no parent, it's the `Root`.
+2. If its `id` appears in the `p_id` column of _other_ nodes, it has children, making it an `Inner` node.
+3. If it fails both above, it must be a `Leaf`.
+
+---
+
+## Problem 34: Average Salary: Departments VS Company (Hard)
+
+### Tables: Salary, Employee
+
+**Scenario:** We have monthly salary payments and an employee table detailing their department.
+
+### Question 1: Compare Averages
+
+_Write an SQL query to report the comparison result (higher/lower/same) of the average salary of employees in a department to the company's average salary for each month._
+
+**Solution (T-SQL):**
+
+```sql
+WITH MonthlyAverages AS (
+    SELECT
+        CONVERT(VARCHAR(7), s.pay_date, 120) AS pay_month,
+        e.department_id,
+        AVG(CAST(s.amount AS FLOAT)) OVER (PARTITION BY CONVERT(VARCHAR(7), s.pay_date, 120), e.department_id) AS dept_avg,
+        AVG(CAST(s.amount AS FLOAT)) OVER (PARTITION BY CONVERT(VARCHAR(7), s.pay_date, 120)) AS company_avg
+    FROM
+        Salary s
+    JOIN
+        Employee e ON s.employee_id = e.employee_id
+)
+SELECT DISTINCT
+    pay_month,
+    department_id,
+    CASE
+        WHEN dept_avg > company_avg THEN 'higher'
+        WHEN dept_avg < company_avg THEN 'lower'
+        ELSE 'same'
+    END AS comparison
+FROM
+    MonthlyAverages
+ORDER BY
+    pay_month DESC, department_id;
+```
+
+**Why this works:** We leverage window functions heavily here. We calculate the `dept_avg` partitioned by both month and department, while simultaneously calculating the `company_avg` partitioned _only_ by month. Because window functions preserve rows, we `SELECT DISTINCT` at the end to collapse the results and output the `CASE` comparison.
+
+---
+
+## Problem 35: Investments in 2016 (Medium)
+
+### Table: Insurance
+
+**Scenario:** We have insurance records with `pid` (policy ID), `tiv_2015`, `tiv_2016`, `lat`, and `lon`.
+
+### Question 1: Calculate Total Value
+
+_Write an SQL query to report the sum of all total investment values in 2016 (`tiv_2016`), for all policyholders who: 1) have the same `tiv_2015` value as one or more other policyholders, and 2) are not located in the same city as any other policyholder (i.e., unique lat/lon pair)._
+
+**Solution (T-SQL):**
+
+```sql
+WITH InvestmentCounts AS (
+    SELECT
+        tiv_2016,
+        COUNT(*) OVER (PARTITION BY tiv_2015) AS count_2015,
+        COUNT(*) OVER (PARTITION BY lat, lon) AS count_location
+    FROM
+        Insurance
+)
+SELECT
+    ROUND(SUM(tiv_2016), 2) AS tiv_2016
+FROM
+    InvestmentCounts
+WHERE
+    count_2015 > 1
+    AND count_location = 1;
+```
+
+**Why this works (The Window Function Filter Method):** 
+Window functions (`COUNT(*) OVER`) are incredibly powerful for identifying uniqueness without messy subqueries. 
+- **The Concept:** The problem asks us to filter data based on 2 opposite conditions: one must be "duplicated" (tiv_2015) and one must be "strictly unique" (lat/lon). 
+- **The Execution:** Instead of writing complex `WHERE tiv_2015 IN (SELECT ... GROUP BY ... HAVING COUNT > 1)` and another `WHERE (lat, lon) IN (SELECT ... HAVING COUNT = 1)`, we can calculate and append the group counts directly to every row using `COUNT(*) OVER (PARTITION BY ...)`.
+- **The Filter:** In the outer query, we simply filter for `count_2015 > 1` (has duplicates) and `count_location = 1` (is completely unique). 
+
+*Interview Tip: Whenever an interview question asks you to find "unique" records or "records shared by others", try to use `COUNT() OVER(PARTITION BY...)` instead of `GROUP BY` subqueries. It shows you know how to write modern, performant, and clean SQL.*
+
+---
+
+## Problem 36: Active Businesses (Medium)
+
+### Table: Events
+
+**Scenario:** An `Events` table logs the `business_id`, `event_type`, and `occurences`.
+
+### Question 1: Find Active Businesses
+
+_An active business is a business that has more than one event type such that their occurrences is strictly greater than the average occurrences of that event type among all businesses. Write an SQL query to find all active businesses._
+
+**Solution (T-SQL):**
+
+```sql
+WITH EventAverages AS (
+    SELECT
+        business_id,
+        event_type,
+        occurences,
+        AVG(CAST(occurences AS FLOAT)) OVER (PARTITION BY event_type) AS avg_event
+    FROM
+        Events
+)
+SELECT
+    business_id
+FROM
+    EventAverages
+WHERE
+    occurences > avg_event
+GROUP BY
+    business_id
+HAVING
+    COUNT(event_type) > 1;
+```
+
+**Why this works:** We use a window function to attach the global average for each `event_type` to every row. Then, we filter for only the rows where the business's occurrences beat the average. Finally, we `GROUP BY` the business and ensure they beat the average in _more than one_ event type (`HAVING COUNT > 1`).
+
+---
+
+## Problem 37: Students Report By Geography (Hard)
+
+### Table: Student
+
+**Scenario:** We have a list of students and the continent they are from.
+
+### Question 1: Pivot the Data
+
+_Write an SQL query to pivot the continents column such that each name is sorted alphabetically and displayed underneath its corresponding continent. The output headers should be America, Asia, and Europe._
+
+**Solution (T-SQL - Native PIVOT):**
+
+```sql
+WITH RankedStudents AS (
+    SELECT
+        name,
+        continent,
+        ROW_NUMBER() OVER (PARTITION BY continent ORDER BY name) AS rn
+    FROM
+        Student
+)
+SELECT 
+    [America], 
+    [Asia], 
+    [Europe]
+FROM 
+    RankedStudents
+PIVOT (
+    MAX(name)
+    FOR continent IN ([America], [Asia], [Europe])
+) AS PivotTable;
+```
+
+**Why this works:** SQL Server has a native `PIVOT` operator specifically designed to transform rows into columns.
+1. We still MUST use `ROW_NUMBER()` in the CTE to create an invisible "grid index" (`rn`). If we didn't have `rn`, the `PIVOT` would just aggregate every student in a continent into a single row.
+2. The `PIVOT` clause requires an aggregate function, so we use `MAX(name)`. Because our `rn` guarantees there is only one name per `rn` per `continent`, `MAX()` simply returns that exact string.
+3. The `FOR continent IN (...)` clause dynamically generates our new column headers.
+
+---
+
+## Problem 38: Nth Highest Salary (Medium)
+
+### Table: Employee
+
+**Scenario:** We need to find the Nth highest salary.
+
+### Question 1: Dynamic Ranking
+
+_Write an SQL query to report the Nth highest salary from the Employee table. If there is no Nth highest salary, the query should report null._
+
+**Solution (T-SQL):**
+
+```sql
+-- Assuming N = 2 for this example. In a stored procedure, this would be a parameter @N.
+DECLARE @N INT = 2;
+
+WITH RankedSalaries AS (
+    SELECT
+        salary,
+        DENSE_RANK() OVER (ORDER BY salary DESC) AS rnk
+    FROM
+        Employee
+)
+SELECT
+    MAX(salary) AS getNthHighestSalary
+FROM
+    RankedSalaries
+WHERE
+    rnk = @N;
+```
+
+**Why this works:** We use `DENSE_RANK()` to rank distinct salaries (so if two people tie for 1st, the next highest is exactly 2nd). We wrap the final select in `MAX(salary)` because if no rows match `rnk = @N` (e.g., asking for the 5th highest when only 3 exist), standard SQL returns an empty set, but using an aggregate like `MAX()` over an empty set guarantees it will return exactly one row containing `NULL`, fulfilling the requirement.
+
+---
+
+## Problem 39: Managers with at Least 5 Direct Reports (Medium)
+
+### Table: Employee
+
+**Scenario:** The employee table has an `id` and a `managerId`.
+
+### Question 1: Find Busy Managers
+
+_Write an SQL query to report the managers with at least five direct reports._
+
+**Solution (T-SQL):**
+
+```sql
+SELECT
+    m.name
+FROM
+    Employee e
+JOIN
+    Employee m ON e.managerId = m.id
+GROUP BY
+    m.id, m.name
+HAVING
+    COUNT(e.id) >= 5;
+```
+
+**Why this works:** We self-join the table to link reports (`e`) to their managers (`m`). We group by the manager's ID and name, and then filter using the `HAVING` clause to only include managers who have 5 or more reports.
