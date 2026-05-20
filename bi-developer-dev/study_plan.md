@@ -1042,8 +1042,7 @@ SSIS utilizes various components to process data:
 
   > _Giải thích: Data Flow có 3 loại Component chính: Source (đầu hút: OLE DB Source, Flat File), Destination (đầu xả: OLE DB Destination, Recordset) và Transformation (bộ lọc/biến đổi: Lookup, Conditional Split). Ngoài các tool có sẵn, ta cũng có thể tự code Custom Component._
 
-**Q: What are some important Transformation Components in the Data Flow?** NOTEEEEEEEEEEEEEEEEEE
-
+**Q: What are some important Transformation Components in the Data Flow?** 
 - **Data Conversion Transformation:** Used to convert data from one data type to another (e.g., converting a string to an integer).
 - **Conditional Split Transformation:** Used to direct data rows to different outputs based on specified conditions, exactly like an `IF...ELSE` or `SWITCH` statement in programming. You can define multiple expressions to route data to different paths.
 - **Script Component:** Used within the Data Flow Task to transform or process data rows individually (e.g., data cleansing or custom calculations) using C# or VB.NET.

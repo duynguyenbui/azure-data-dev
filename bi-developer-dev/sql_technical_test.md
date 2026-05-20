@@ -2397,3 +2397,178 @@ HAVING
 ```
 
 **Why this works:** We self-join the table to link reports (`e`) to their managers (`m`). We group by the manager's ID and name, and then filter using the `HAVING` clause to only include managers who have 5 or more reports.
+
+---
+
+## Problem 40: Rank Scores (Medium)
+
+### Table: Scores
+
+**Scenario:** We need to rank scores from highest to lowest. If there is a tie between two scores, both should have the same ranking. After a tie, the next ranking number should be the next consecutive integer value.
+
+### Question 1: Rank the scores
+
+_Write an SQL query to rank the scores._
+
+**Solution:**
+
+```sql
+SELECT
+    score,
+    DENSE_RANK() OVER (ORDER BY score DESC) AS rank
+FROM
+    Scores
+ORDER BY
+    score DESC;
+```
+
+**Why this works:** The `DENSE_RANK()` window function assigns a rank to each row within a result set partition, with no gaps in ranking values. This perfectly matches the requirement that after a tie, the next ranking is the next consecutive integer.
+
+---
+
+## Problem 41: Rising Temperature (Easy)
+
+### Table: Weather
+
+**Scenario:** The `Weather` table contains weather data by date.
+
+### Question 1: Find dates with higher temperatures than the previous date
+
+_Write an SQL query to find all dates' `id` with higher temperatures compared to its previous dates (yesterday)._
+
+**Solution:**
+
+```sql
+SELECT
+    w1.id
+FROM
+    Weather w1
+JOIN
+    Weather w2 ON DATEADD(day, 1, w2.recordDate) = w1.recordDate
+WHERE
+    w1.temperature > w2.temperature;
+```
+
+**Why this works:** We join the `Weather` table to itself. By adding 1 day to `w2.recordDate` and matching it to `w1.recordDate`, we effectively align each day (`w1`) with its yesterday (`w2`). Then we simply filter for rows where today's temperature (`w1.temperature`) is greater than yesterday's temperature (`w2.temperature`).
+
+---
+
+## Problem 42: Capital Gain/Loss (Medium)
+
+### Table: Stocks
+
+**Scenario:** The `Stocks` table contains the buy and sell prices of various stocks over different days. Each stock's operation consists of paired 'Buy' and 'Sell' days (meaning each buy is eventually followed by a sell).
+
+### Question 1: Calculate Total Capital Gain/Loss
+
+_Write an SQL query to report the Capital gain/loss for each stock. The Capital gain/loss of a stock is the total gain or loss after buying and selling the stock one or many times._
+
+**Solution:**
+
+```sql
+SELECT
+    stock_name,
+    SUM(CASE WHEN operation = 'Buy' THEN -price ELSE price END) AS capital_gain_loss
+FROM
+    Stocks
+GROUP BY
+    stock_name;
+```
+
+**Why this works:** We group the records by `stock_name`. For each stock, a 'Buy' operation represents money spent (a negative amount), and a 'Sell' operation represents money gained (a positive amount). By summing these up conditionally using a `CASE` statement, we get the net capital gain or loss.
+
+---
+
+## Problem 43: Average Time of Process per Machine (Medium)
+
+### Table: MachineActivity
+
+**Scenario:** We have logs of machines processing tasks. Each process consists of a "start" and an "end" activity.
+
+### Question 1: Find Processing Time
+
+_Write an SQL query to calculate the average time each machine takes to complete a process. The time to complete a process is the 'end' timestamp minus the 'start' timestamp. The average time is calculated by the total time to complete every process on the machine divided by the number of processes that were run._
+
+**Solution (using self-join):**
+
+```sql
+SELECT
+    a1.machine_id,
+    ROUND(AVG(a2.timestamp - a1.timestamp), 3) AS processing_time
+FROM
+    MachineActivity a1
+JOIN
+    MachineActivity a2
+    ON a1.machine_id = a2.machine_id
+    AND a1.process_id = a2.process_id
+    AND a1.activity_type = 'start'
+    AND a2.activity_type = 'end'
+GROUP BY
+    a1.machine_id;
+```
+
+**Why this works:** The self-join correctly pairs up the 'start' and 'end' events for the exact same `machine_id` and `process_id`. Taking the average of their timestamp difference natively handles calculating the average processing time per machine.
+
+---
+
+## Problem 44: Apples & Oranges (Medium)
+
+### Table: FruitSales
+
+**Scenario:** We have a table tracking daily sales of apples and oranges.
+
+### Question 1: Difference in Sales
+
+_Write an SQL query to report the difference between the number of apples and oranges sold each day. Return the result table ordered by `sale_date`._
+
+**Solution:**
+
+```sql
+SELECT
+    sale_date,
+    SUM(CASE WHEN fruit = 'apples' THEN sold_num ELSE -sold_num END) AS diff
+FROM
+    FruitSales
+GROUP BY
+    sale_date
+ORDER BY
+    sale_date;
+```
+
+**Why this works:** Using a conditional `SUM()` with a `CASE` statement allows you to pivot the data in-place. If the fruit is an apple, we add the sold amount. If the fruit is an orange, we subtract the sold amount. Grouping by date calculates the total net difference natively.
+
+---
+
+## Problem 45: Find Median Given Frequency of Numbers (Hard)
+
+### Table: Numbers
+
+**Scenario:** Instead of a traditional array of numbers, the numbers are stored as a frequency table.
+
+### Question 1: Calculate the Median
+
+_Write an SQL query to find the median of all the numbers. The median should be calculated effectively despite the data being represented as frequencies rather than distinct rows._
+
+**Solution:**
+
+```sql
+WITH CumulativeFrequencies AS (
+    SELECT
+        num,
+        frequency,
+        SUM(frequency) OVER (ORDER BY num ASC) AS asc_cum_freq,
+        SUM(frequency) OVER (ORDER BY num DESC) AS desc_cum_freq,
+        SUM(frequency) OVER () AS total_freq
+    FROM
+        Numbers
+)
+SELECT
+    AVG(CAST(num AS DECIMAL(10,2))) AS median
+FROM
+    CumulativeFrequencies
+WHERE
+    asc_cum_freq >= total_freq / 2.0
+    AND desc_cum_freq >= total_freq / 2.0;
+```
+
+**Why this works:** The median of a sequence is always the element that splits the set into two halves. By calculating running totals of the frequencies from both ends (ascending and descending), we can find the element(s) where the cumulative counts from both directions overlap the middle point (`total_freq / 2.0`). Taking the `AVG()` naturally handles cases where the total count is even and the median bridges two different numbers.

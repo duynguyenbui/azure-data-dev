@@ -1,4 +1,3 @@
--- Drop tables if they already exist to make the script re-runnable
 IF OBJECT_ID('JobPostings', 'U') IS NOT NULL DROP TABLE JobPostings;
 IF OBJECT_ID('Employees', 'U') IS NOT NULL DROP TABLE Employees;
 IF OBJECT_ID('Sales', 'U') IS NOT NULL DROP TABLE Sales;
@@ -10,8 +9,6 @@ IF OBJECT_ID('EmployeeSalaries', 'U') IS NOT NULL DROP TABLE EmployeeSalaries;
 IF OBJECT_ID('SalesQuarterly', 'U') IS NOT NULL DROP TABLE SalesQuarterly;
 IF OBJECT_ID('DimCustomer', 'U') IS NOT NULL DROP TABLE DimCustomer;
 IF OBJECT_ID('CustomerStaging', 'U') IS NOT NULL DROP TABLE CustomerStaging;
--- BillOfMaterials is dropped before its creation block
--- Problems 14-19
 IF OBJECT_ID('MonthlyRevenue', 'U') IS NOT NULL DROP TABLE MonthlyRevenue;
 IF OBJECT_ID('SourceOrders', 'U') IS NOT NULL DROP TABLE SourceOrders;
 IF OBJECT_ID('TargetOrders', 'U') IS NOT NULL DROP TABLE TargetOrders;
@@ -20,7 +17,6 @@ IF OBJECT_ID('DimDate', 'U') IS NOT NULL DROP TABLE DimDate;
 IF OBJECT_ID('DimProduct', 'U') IS NOT NULL DROP TABLE DimProduct;
 IF OBJECT_ID('DimStore', 'U') IS NOT NULL DROP TABLE DimStore;
 IF OBJECT_ID('Orders', 'U') IS NOT NULL DROP TABLE Orders;
--- UDFs for Problem 15
 IF OBJECT_ID('dbo.fn_GetAgeInYears',           'FN') IS NOT NULL DROP FUNCTION dbo.fn_GetAgeInYears;
 IF OBJECT_ID('dbo.fn_GetActiveEmployeesByDept', 'IF') IS NOT NULL DROP FUNCTION dbo.fn_GetActiveEmployeesByDept;
 
@@ -873,5 +869,135 @@ INSERT INTO Employee_HR (id, name, salary, managerId) VALUES
 (104, 'Amy', 90000, 101),
 (105, 'Anne', 60000, 101),
 (106, 'Ron', 55000, 101);
+
+GO
+
+-- ==========================================
+-- Problem 40: Rank Scores
+-- ==========================================
+IF OBJECT_ID('Scores', 'U') IS NOT NULL DROP TABLE Scores;
+
+CREATE TABLE Scores (
+    id INT PRIMARY KEY,
+    score DECIMAL(3,2)
+);
+
+INSERT INTO Scores (id, score) VALUES
+(1, 3.50),
+(2, 3.65),
+(3, 4.00),
+(4, 3.85),
+(5, 4.00),
+(6, 3.65);
+
+GO
+
+-- ==========================================
+-- Problem 41: Rising Temperature
+-- ==========================================
+IF OBJECT_ID('Weather', 'U') IS NOT NULL DROP TABLE Weather;
+
+CREATE TABLE Weather (
+    id INT PRIMARY KEY,
+    recordDate DATE,
+    temperature INT
+);
+
+INSERT INTO Weather (id, recordDate, temperature) VALUES
+(1, '2015-01-01', 10),
+(2, '2015-01-02', 25),
+(3, '2015-01-03', 20),
+(4, '2015-01-04', 30);
+
+GO
+
+-- ==========================================
+-- Problem 42: Capital Gain/Loss
+-- ==========================================
+IF OBJECT_ID('Stocks', 'U') IS NOT NULL DROP TABLE Stocks;
+
+CREATE TABLE Stocks (
+    stock_name VARCHAR(50),
+    operation VARCHAR(10),
+    operation_day INT,
+    price INT
+);
+
+INSERT INTO Stocks (stock_name, operation, operation_day, price) VALUES
+('Leetcode', 'Buy', 1, 1000),
+('Corona Masks', 'Buy', 2, 10),
+('Leetcode', 'Sell', 5, 9000),
+('Handbags', 'Buy', 17, 30000),
+('Corona Masks', 'Sell', 3, 1010),
+('Corona Masks', 'Buy', 4, 1000),
+('Corona Masks', 'Sell', 5, 500),
+('Corona Masks', 'Buy', 6, 1000),
+('Handbags', 'Sell', 29, 7000),
+('Corona Masks', 'Sell', 10, 10000);
+
+GO
+
+-- ==========================================
+-- Problem 43: Average Time of Process per Machine
+-- ==========================================
+IF OBJECT_ID('MachineActivity', 'U') IS NOT NULL DROP TABLE MachineActivity;
+
+CREATE TABLE MachineActivity (
+    machine_id INT,
+    process_id INT,
+    activity_type VARCHAR(10),
+    timestamp FLOAT
+);
+
+INSERT INTO MachineActivity (machine_id, process_id, activity_type, timestamp) VALUES
+(1, 1, 'start', 0.712),
+(1, 1, 'end', 1.520),
+(1, 2, 'start', 3.140),
+(1, 2, 'end', 4.120),
+(2, 1, 'start', 2.500),
+(2, 1, 'end', 5.000),
+(2, 2, 'start', 2.500),
+(2, 2, 'end', 3.000);
+
+GO
+
+-- ==========================================
+-- Problem 44: Apples & Oranges
+-- ==========================================
+IF OBJECT_ID('FruitSales', 'U') IS NOT NULL DROP TABLE FruitSales;
+
+CREATE TABLE FruitSales (
+    sale_date DATE,
+    fruit VARCHAR(20),
+    sold_num INT
+);
+
+INSERT INTO FruitSales (sale_date, fruit, sold_num) VALUES
+('2020-05-01', 'apples', 10),
+('2020-05-01', 'oranges', 8),
+('2020-05-02', 'apples', 15),
+('2020-05-02', 'oranges', 15),
+('2020-05-03', 'apples', 20),
+('2020-05-03', 'oranges', 0),
+('2020-05-04', 'apples', 15),
+('2020-05-04', 'oranges', 16);
+
+GO
+
+-- ==========================================
+-- Problem 45: Find Median Given Frequency of Numbers
+-- ==========================================
+IF OBJECT_ID('Numbers', 'U') IS NOT NULL DROP TABLE Numbers;
+
+CREATE TABLE Numbers (
+    num INT PRIMARY KEY,
+    frequency INT
+);
+
+INSERT INTO Numbers (num, frequency) VALUES
+(0, 7),
+(1, 1),
+(2, 3),
+(3, 1);
 
 GO
