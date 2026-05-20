@@ -9,7 +9,7 @@
 
 ## 1. Career History (The "Tell Me About Yourself" Pitch)
 
-> "I’m currently an SQL - Data Developer at Ready Workforce, where my day-to-day focus is working extensively with SQL to extract and transform data, and then building actionable reports for our business stakeholders. Over the past few years, I’ve built a strong technical foundation in SQL Server, data architecture, and query optimization. I really enjoy bridging the gap between raw backend data solutions and front-end business insights, which is why I’m so excited to speak with you both at Pinnacle Group. I’m looking for a dedicated BI Developer role where I can leverage my strong SQL foundation to build scalable data systems and drive data-driven decision-making."
+> "I’m currently an SQL - Data Developer at Ready Workforce, where my day-to-day focus is working extensively with SQL to extract and transform data, and then building actionable reports for our business stakeholders. Over the past few years, I’ve built a solid technical foundation in SQL Server, data modeling, and query optimization. I really enjoy bridging the gap between raw backend data solutions and front-end business insights, which is why I’m so excited to speak with you both at Pinnacle Group. I’m looking for a dedicated BI Developer role where I can leverage my data background to deliver scalable reporting solutions."
 
 ---
 
@@ -19,7 +19,7 @@
 
 ## 3. Current Role – Projects & Tools
 
-> "At Ready Workforce, my primary focus is working with data and SQL to deliver reports for the business. I own the end-to-end process of gathering reporting requirements, architecting the complex T-SQL queries to pull and transform the data, and delivering the final analytics to stakeholders. A recent high-impact project I worked on involved taking a slow, manual data extraction process and replacing it with an optimized SQL stored procedure. By replacing inefficient cursors with set-based logic, I was able to generate the report significantly faster, ensuring our analytics systems were both scalable and reliable. It’s this mix of deep SQL architecture and direct analytics delivery that I spend most of my time on."
+> "At Ready Workforce, my primary focus is working with data and SQL to deliver reports for the business. I own the end-to-end process of gathering reporting requirements, architecting the complex T-SQL queries to pull and transform the data, and delivering the final analytics to stakeholders. A recent high-impact project I worked on involved optimizing a critical reporting query that was timing out. By analyzing the query execution plan and logical execution order, I restructured the query to filter data much earlier in the execution path—before any heavy calculations or window functions were applied. This reduced the report run time from minutes to seconds, ensuring our analytics systems were both scalable and reliable. It’s this mix of deep SQL optimization and direct analytics delivery that I spend most of my time on."
 
 ## 4. Likes and Dislikes About Your Current Role at Ready Workforce
 

@@ -636,6 +636,104 @@ Before diving into specifics, you must understand what these core terms _actuall
 | **Accumulating Snapshot** | Records the entire lifecycle of a process with multiple milestones (e.g., Order Placed -> Shipped -> Delivered). Has multiple date foreign keys. | Tracking processes with clear start/end milestones. | _Bảng chụp nhanh tích lũy: Lưu toàn bộ vòng đời (vd: Ngày đặt -> Ngày giao). Được update nhiều lần._ |
 | **Factless Fact**         | A fact table with no measurable numbers (e.g., tracking student attendance). It records that an _event_ happened.                                | Tracking events/coverage.                           | _Bảng Fact không có số đo lường: Chỉ để ghi nhận một sự kiện có xảy ra (vd: điểm danh học sinh)._    |
 
+#### ✅ Topic 3.5: Step-by-Step Data Modeling Case Study (Fact + Dim Design) [CRITICAL FOR TONIGHT]
+
+_Jake Nguyen's Tip: You will be asked to design Dim + Fact tables for a specific business process (e.g., HR/Payroll, Retail Sales, or Flight Booking). Use this structured 4-step approach to answer._
+
+##### 1. The 4-Step Dimensional Design Process (Kimball Methodology)
+- **Step 1: Select the Business Process:** Identify the exact business event you want to analyze (e.g., "Employee Timesheets", "Sales Transactions").
+- **Step 2: Declare the Grain:** Define precisely what one row in the Fact table represents (e.g., "One row = One timesheet entry per employee per day"). Always choose the lowest, most atomic grain.
+- **Step 3: Identify the Dimensions:** Determine the descriptive attributes (Who, What, Where, When, Why) that contextually describe the event. (e.g., `DimEmployee`, `DimClient`, `DimDate`, `DimDepartment`).
+- **Step 4: Identify the Facts:** Determine the numeric, measurable metrics to be calculated/aggregated (e.g., `HoursWorked`, `RegularHours`, `OvertimeHours`, `GrossPay`).
+
+##### 2. Real-World Example: HR & Payroll System (Ready Workforce case study)
+If asked to model a system like your current project:
+
+*   **Grain:** One row per employee daily timesheet punch.
+*   **Fact Table (`FactTimesheet`):**
+    *   `TimesheetKey` (PK - Surrogate Key)
+    *   `EmployeeKey` (FK)
+    *   `ClientKey` (FK)
+    *   `DateKey` (FK)
+    *   `PayTypeKey` (FK)
+    *   `HoursWorked` (Numeric)
+    *   `OvertimeHours` (Numeric)
+    *   `RegularHours` (Numeric)
+    *   `GrossPay` (Numeric)
+*   **Dimension Tables:**
+    *   `DimEmployee`: `EmployeeKey` (PK), `EmployeeID` (NK), `FullName`, `JobTitle`, `HireDate`, `DepartmentName`.
+    *   `DimClient`: `ClientKey` (PK), `ClientID` (NK), `ClientName`, `Industry`, `Location`.
+    *   `DimDate`: `DateKey` (PK), `FullDate`, `Year`, `Quarter`, `Month`, `DayOfWeek`, `IsHoliday`.
+    *   `DimPayType`: `PayTypeKey` (PK), `PayTypeCode`, `PayTypeName`, `RateMultiplier`.
+
+##### 3. Key Architectural Guidelines to Mention (For Senior Points):
+- **Always use Surrogate Keys (SK):** Use an integer (identity column or sequence) as the Primary Key in Dimension tables, and join the Fact table to the SK, NOT the Natural Key (NK) from the source system. *Rationale:* Protects the DW when source IDs change (e.g., an employee is re-assigned a new ID in the source CRM) and optimizes join speed in SQL Server.
+- **Star Schema over Snowflake:** Advocate for the Star Schema. *Rationale:* Reduces the number of JOINs, which speeds up SQL reads and runs significantly faster in Power BI’s VertiPaq in-memory engine.
+- **Conformed Dimensions:** Point out that `DimDate` is a conformed dimension, which allows us to analyze both Sales and Timesheets on the same timeline (enabling a Galaxy/Fact Constellation schema later).
+
+##### 4. Additional Common Interview Case Studies
+
+###### Case Study A: E-Commerce / Retail Sales
+*   **Grain:** One row per individual item purchased on a receipt (Order Line Item).
+*   **Fact Table (`FactSales`):**
+    *   `SalesKey` (PK - Surrogate Key)
+    *   `OrderNumber` (Degenerate Dimension - kept in Fact to group items, no separate Dim table needed)
+    *   `CustomerKey` (FK)
+    *   `ProductKey` (FK)
+    *   `StoreKey` (FK)
+    *   `DateKey` (FK)
+    *   `Quantity` (Fact - Additive)
+    *   `UnitPrice` (Fact - Semi-additive)
+    *   `DiscountAmount` (Fact - Additive)
+    *   `NetSalesAmount` (Fact - Additive: `(Quantity * UnitPrice) - DiscountAmount`)
+*   **Dimension Tables:**
+    *   `DimCustomer`: `CustomerKey` (PK), `CustomerID` (NK), `CustomerName`, `Gender`, `City`, `PostalCode`.
+    *   `DimProduct`: `ProductKey` (PK), `ProductID` (NK), `ProductName`, `Category`, `Subcategory`, `Color`.
+    *   `DimStore`: `StoreKey` (PK), `StoreID` (NK), `StoreName`, `StoreCity`, `StoreCountry`.
+    *   `DimDate`: `DateKey` (PK), `FullDate`, `Year`, `Month`, `DayOfWeek`, `IsHoliday`.
+
+###### Case Study B: Ride-Hailing Service (Uber/Grab Style)
+*   **Grain:** One row per completed trip.
+*   **Fact Table (`FactRides`):**
+    *   `RideKey` (PK - Surrogate Key)
+    *   `RideID` (Degenerate Dimension - Unique ride number)
+    *   `PassengerKey` (FK)
+    *   `DriverKey` (FK)
+    *   `PickupLocationKey` (FK - points to `DimLocation`)
+    *   `DropoffLocationKey` (FK - points to `DimLocation` - Role-Playing Dimension example)
+    *   `DateKey` (FK - points to `DimDate`)
+    *   `TripDurationSeconds` (Fact)
+    *   `TripDistanceMiles` (Fact)
+    *   `FareAmount` (Fact)
+    *   `TipAmount` (Fact)
+    *   `RatingByPassenger` (Fact - Non-additive/Averageable)
+*   **Dimension Tables:**
+    *   `DimPassenger`: `PassengerKey` (PK), `PassengerID` (NK), `PassengerName`, `SignupDate`.
+    *   `DimDriver`: `DriverKey` (PK), `DriverID` (NK), `DriverName`, `LicensePlate`, `Rating`.
+    *   `DimLocation`: `LocationKey` (PK), `StreetAddress`, `Neighborhood`, `City`, `Latitude`, `Longitude`.
+
+###### Case Study C: Subscription / SaaS (Monthly MRR Tracking)
+*   **Grain:** One row per active subscription per month (Periodic Snapshot Fact Table).
+*   **Fact Table (`FactMonthlySubscriptionSnapshot`):**
+    *   `SnapshotKey` (PK - Surrogate Key)
+    *   `DateKey` (FK - points to end of the month in `DimDate`)
+    *   `CustomerKey` (FK)
+    *   `SubscriptionKey` (FK)
+    *   `PlanKey` (FK)
+    *   `MonthlyRecurringRevenue` (MRR - Fact)
+    *   `IsActive` (Fact - Boolean 1/0 indicator)
+*   **Dimension Tables:**
+    *   `DimSubscription`: `SubscriptionKey` (PK), `SubscriptionID` (NK), `StartDate`, `EndDate`, `AutoRenewFlag`.
+    *   `DimPlan`: `PlanKey` (PK), `PlanID` (NK), `PlanName`, `BillingCycle` (Monthly/Annual), `Price`.
+
+> _Giải thích tiếng Việt (Kịch bản phỏng vấn):_
+> _Khi được yêu cầu thiết kế hệ thống dữ liệu, hãy trình bày đủ 4 bước Kimball: (1) Xác định nghiệp vụ, (2) Xác định Grain (độ chi tiết thấp nhất - vd: 1 dòng = 1 lượt điểm danh mỗi ngày), (3) Xác định Dim (Employee, Date, Client), và (4) Xác định Fact (Số giờ làm, Lương)._
+> _Nhớ nhắc đến 3 nguyên tắc vàng để ghi điểm:_
+> 1. _**Dùng Surrogate Key** (Khóa thay thế tự sinh dạng số) cho bảng Dim thay vì dùng mã gốc hệ thống để tăng hiệu năng JOIN và tránh lỗi khi hệ thống nguồn thay đổi._
+> 2. _**Ưu tiên Star Schema** hơn Snowflake để giảm số lượng JOIN giúp Power BI và SSAS chạy nhanh hơn._
+> 3. _**Dùng Conformed Dimension** (như DimDate dùng chung cho nhiều Fact) giúp liên kết các báo cáo doanh nghiệp chéo nhau dễ dàng._
+> 4. _**Hiểu rõ các loại Dimension đặc biệt:** Role-Playing Dimension (như DimLocation đóng vai trò cả Pickup và Dropoff trong FactRides), và Degenerate Dimension (như OrderNumber lưu thẳng ở Fact mà không cần bảng Dim riêng)._
+
 #### ✅ Topic 4: Handling Many-to-Many Relationships
 
 **The Problem:**

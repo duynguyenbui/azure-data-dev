@@ -31,6 +31,7 @@
     - **Data Modeling & Warehousing**
       - Schema types (Star, Snowflake, Galaxy)
       - Difference between OLAP and OLTP
+      - Design Fact Table
     - **BI Tools**
       - Power BI & Tableau usage, dashboards, drilldowns, filters
       - Data cleansing, profiling, and visualization practices
