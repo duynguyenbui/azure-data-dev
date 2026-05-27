@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: "Cleaned and standardized customer data."
+    columns:
+      - name: customer_id
+        description: "Primary key for customer"
+        tests:
+          - unique
+          - not_null
+      - name: email
+        description: "Customer email (converted to lowercase)"
+        tests:
+          - not_null
+
+  - name: stg_orders
+    description: "Cleaned and standardized order data."
+    columns:
+      - name: order_id
+        description: "Primary key for order"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Foreign key referencing customer"
+        tests:
+          - not_null
+      - name: status
+        description: "Order status"
+        tests:
+          - accepted_values:
+              values: ['completed', 'shipped', 'processing', 'cancelled']

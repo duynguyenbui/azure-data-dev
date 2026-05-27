@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Dimension Table containing customer profile info and aggregated metrics."
+    columns:
+      - name: customer_id
+        description: "Primary key for customer"
+        tests:
+          - unique
+          - not_null
+      - name: customer_segment
+        description: "Customer segment (VIP / Regular / New)"
+        tests:
+          - accepted_values:
+              values: ['VIP', 'Regular', 'New']
+
+  - name: fct_orders
+    description: "Fact Table containing details of each order transaction."
+    columns:
+      - name: order_id
+        description: "Primary key for order"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Foreign key referencing dim_customers"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: order_value_tier
+        description: "Order value tier classification (High Value / Mid Value / Low Value)"
+        tests:
+          - accepted_values:
+              values: ['High Value', 'Mid Value', 'Low Value']

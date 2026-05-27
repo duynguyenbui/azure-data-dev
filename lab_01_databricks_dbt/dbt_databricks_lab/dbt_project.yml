@@ -1,0 +1,28 @@
+name: 'dbt_databricks_lab'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which directory to look for models, tests, seeds, etc.
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Configure the connection profile to use (defined in profiles.yml)
+profile: 'databricks_profile'
+
+# Define materialization configurations for models
+models:
+  dbt_databricks_lab:
+    # Staging models will be materialized as views by default
+    staging:
+      +materialized: view
+    # Marts models will be materialized as tables for BI performance
+    marts:
+      +materialized: table

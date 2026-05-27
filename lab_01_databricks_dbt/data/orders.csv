@@ -1,0 +1,7 @@
+order_id,customer_id,order_date,status,total_amount
+1001,1,2023-01-15,completed,250.00
+1002,2,2023-01-16,completed,150.50
+1003,1,2023-02-20,shipped,300.00
+1004,3,2023-03-05,processing,120.00
+1005,4,2023-03-10,completed,500.00
+1006,5,2023-03-12,cancelled,0.00

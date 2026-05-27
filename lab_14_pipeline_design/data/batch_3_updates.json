@@ -1,0 +1,30 @@
+[
+  {
+    "order_id": "ORD001",
+    "customer_id": "C01",
+    "order_date": "2026-05-27T08:00:00",
+    "amount": 150.0,
+    "status": "Shipped"
+  },
+  {
+    "order_id": "ORD002",
+    "customer_id": "C02",
+    "order_date": "2026-05-27T08:30:00",
+    "amount": 85.5,
+    "status": "Delivered"
+  },
+  {
+    "order_id": "ORD005",
+    "customer_id": "C01",
+    "order_date": "2026-05-27T09:30:00",
+    "amount": 99.9,
+    "status": "Processing"
+  },
+  {
+    "order_id": "ORD008",
+    "customer_id": "C06",
+    "order_date": "2026-05-27T10:30:00",
+    "amount": 310.5,
+    "status": "Pending"
+  }
+]

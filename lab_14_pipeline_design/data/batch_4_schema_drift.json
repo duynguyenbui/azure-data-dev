@@ -1,0 +1,18 @@
+[
+  {
+    "order_id": "ORD009",
+    "customer_id": "C03",
+    "order_date": "2026-05-27T11:00:00",
+    "amount": 75.0,
+    "status": "Pending",
+    "discount_applied": true
+  },
+  {
+    "order_id": "ORD010",
+    "customer_id": "C07",
+    "order_date": "2026-05-27T11:30:00",
+    "amount": 200.0,
+    "status": "Pending",
+    "discount_applied": false
+  }
+]

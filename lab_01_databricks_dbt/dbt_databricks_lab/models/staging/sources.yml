@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: default
+    description: "Bronze schema containing raw data created by the DLT Pipeline."
+    database: hive_metastore
+    schema: default
+    tables:
+      - name: raw_customers
+        description: "Raw customer data from ADLS Gen2 via Auto Loader."
+      - name: raw_orders
+        description: "Raw order data from ADLS Gen2 via Auto Loader."
